@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>地板拼貼｜社群工作台</title>
+  <style>
+    :root {
+      /* 所有畫面顏色集中在這裡調整 */
+      --brand: #4e0daf;
+      --brand-light: #f0e8fb;
+      --brand-dark: #350777;
+      --canvas: #f5f4f7;
+      --surface: #ffffff;
+      --surface-soft: #faf9fc;
+      --ink: #24202b;
+      --ink-muted: #6c6575;
+      --line: #e3dfe9;
+      --line-strong: #cfc7da;
+      --placeholder: #918a9a;
+      --on-brand: #ffffff;
+      --phone-bg: #ffffff;
+      --phone-frame: #25202e;
+      --preview-black: #171717;
+      --image-scrim: rgba(0, 0, 0, .68);
+      --social-muted: #777b84;
+      --social-line: #e7e8eb;
+      --fb-blue: #0866ff;
+      --fb-canvas: #f2f4f7;
+      --shadow: rgba(42, 25, 65, .08);
+      --focus: rgba(78, 13, 175, .18);
+      --dialog-backdrop: rgba(24, 17, 34, .58);
+    }
+
+    * { box-sizing: border-box; }
+    .icon-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+    html { font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); }
+    button, input, textarea { font: inherit; }
+
+    .topbar {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px clamp(20px, 3vw, 48px);
+      background: var(--brand);
+      color: var(--on-brand);
+    }
+    .topbar h1 { margin: 0; font-size: clamp(20px, 1.55vw, 25px); font-weight: 700; letter-spacing: .015em; }
+    .topbar-note { font-size: 13px; opacity: .82; white-space: nowrap; }
+    .topbar-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+    .settings-trigger { min-height: 39px; padding: 7px 14px; border: 1px solid var(--on-brand); border-radius: 8px; background: transparent; color: var(--on-brand); font-weight: 700; cursor: pointer; }
+    .settings-trigger:focus-visible, .compose-button:focus-visible, .dialog-close:focus-visible, .dialog-primary:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(290px, 1.07fr) minmax(350px, 1.45fr) minmax(300px, 1fr);
+      gap: 20px;
+      max-width: 1700px;
+      margin: 0 auto;
+      padding: 28px clamp(20px, 3vw, 48px) 42px;
+      align-items: start;
+    }
+    .panel {
+      min-width: 0;
+      min-height: 680px;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 8px 30px var(--shadow);
+    }
+    .panel-heading { padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+    .panel-heading h2 { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
+    .panel-heading p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.6; }
+    .preview-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .preview-heading .upload-button { flex: 0 0 auto; }
+
+    .form-fields { display: grid; gap: 18px; }
+    .material-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .compose-button { width: 100%; min-height: 44px; margin-top: 22px; border: 1px solid var(--brand); border-radius: 9px; background: var(--brand); color: var(--on-brand); font-weight: 700; cursor: pointer; }
+    .compose-button:hover { background: var(--brand-dark); }
+    .save-button { background: var(--surface); color: var(--brand); }
+    .save-button:hover { background: var(--brand-light); }
+    .ai-generate-button { grid-column: 1 / -1; margin-top: 0; }
+    .ai-generate-button:disabled { background: var(--surface-soft); border-color: var(--line-strong); color: var(--ink-muted); cursor: wait; }
+    .save-status { min-height: 18px; margin: 9px 0 0; color: var(--ink-muted); font-size: 12px; }
+    .field { display: grid; gap: 8px; }
+    .field label { font-size: 14px; font-weight: 650; }
+    .required { color: var(--brand); margin-left: 4px; }
+    .optional { color: var(--ink-muted); font-size: 12px; font-weight: 400; margin-left: 6px; }
+    .field textarea, .field input[type="date"], .post-textarea {
+      width: 100%;
+      resize: vertical;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      outline: 0;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 12px 13px;
+      line-height: 1.65;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field textarea { min-height: 84px; font-size: 14px; }
+    .field input[type="date"] { min-height: 46px; font-size: 14px; }
+    .field textarea::placeholder, .post-textarea::placeholder { color: var(--placeholder); opacity: 1; }
+    .field textarea:focus, .field input[type="date"]:focus, .post-textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 4px var(--focus); }
+    .field textarea:focus-visible, .field input[type="date"]:focus-visible, .post-textarea:focus-visible, .platform-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+    .platform-label { display: block; margin: 0 0 10px; font-size: 14px; font-weight: 650; }
+    .platform-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+    .platform-tab {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 16px;
+      background: var(--surface-soft);
+      color: var(--ink-muted);
+      font-size: 14px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .platform-tab.is-selected { border-color: var(--brand); background: var(--brand-light); color: var(--brand-dark); }
+    .post-label { display: block; margin-bottom: 10px; font-size: 16px; font-weight: 700; }
+    .post-textarea { display: block; min-height: 440px; font-size: 15px; }
+    .upload-area { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .upload-title { display: block; margin-bottom: 11px; font-size: 16px; font-weight: 700; }
+    .upload-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+    .upload-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .upload-button, .remove-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 650; }
+    .upload-button { border: 1px solid var(--brand); background: var(--brand); color: var(--on-brand); cursor: pointer; }
+    .upload-button:hover { background: var(--brand-dark); }
+    .upload-button:disabled { background: var(--surface-soft); border-color: var(--line-strong); color: var(--ink-muted); cursor: not-allowed; }
+    .upload-input:focus-visible + .upload-button, .upload-button:focus-visible, .remove-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+    .remove-button { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+    .remove-button:hover { background: var(--surface-soft); }
+    .remove-button[hidden] { display: none; }
+    .upload-status { min-width: 0; color: var(--ink-muted); font-size: 13px; overflow-wrap: anywhere; }
+    .editor-help { margin: 12px 0 0; color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+
+    .preview-wrap { display: flex; justify-content: center; padding: 4px 0 10px; }
+    .phone {
+      position: relative;
+      width: min(100%, 326px);
+      height: 650px;
+      padding: 8px;
+      border: 7px solid var(--phone-frame);
+      border-radius: 34px;
+      background: var(--phone-bg);
+      box-shadow: 0 17px 33px var(--shadow);
+    }
+    .phone-notch { display: none; }
+    .phone-content { display: flex; flex-direction: column; overflow: hidden; height: 100%; border-radius: 25px; background: var(--surface); }
+    .device-status { display: flex; align-items: flex-end; justify-content: space-between; flex: 0 0 25px; padding: 0 16px 3px; color: var(--preview-black); font-size: 10px; font-weight: 750; }
+    .device-status-icons { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1; }
+    .device-battery { width: 17px; height: 8px; border: 1px solid currentColor; border-radius: 2px; padding: 1px; }
+    .device-battery::after { content: ''; display: block; width: 11px; height: 4px; border-radius: 1px; background: currentColor; }
+    .device-home { display: grid; place-items: center; flex: 0 0 14px; background: var(--surface); }
+    .device-home::after { content: ''; width: 88px; height: 4px; border-radius: 99px; background: var(--preview-black); }
+    .preview-platform { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface); color: var(--preview-black); }
+    .preview-platform[hidden] { display: none; }
+    .social-icon { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .social-icon.small { width: 16px; height: 16px; flex-basis: 16px; }
+    .social-icon.large { width: 23px; height: 23px; flex-basis: 23px; }
+    .app-toolbar { display: flex; align-items: center; justify-content: space-between; flex: 0 0 43px; padding: 0 12px; background: var(--surface); }
+    .toolbar-actions { display: flex; align-items: center; gap: 13px; }
+    .app-nav { display: flex; align-items: center; justify-content: space-around; flex: 0 0 48px; border-top: 1px solid var(--social-line); background: var(--surface); }
+    .app-nav .social-icon { width: 22px; height: 22px; flex-basis: 22px; }
+    .feed-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+    .feed-scroll::-webkit-scrollbar { display: none; }
+    .phone-profile { display: flex; align-items: center; gap: 9px; padding: 10px 12px; }
+    .avatar { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; color: var(--brand); background: var(--brand-light); font-size: 14px; font-weight: 750; }
+    .profile-name { min-width: 0; display: grid; gap: 2px; }
+    .profile-name strong { font-size: 12px; line-height: 1.2; }
+    .profile-name small { color: var(--social-muted); font-size: 10px; }
+    .preview-placeholder { color: var(--placeholder) !important; }
+    .preview-post { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.55; }
+    .preview-image { position: relative; display: grid; place-items: center; overflow: hidden; background: var(--surface-soft); color: var(--placeholder); font-size: 12px; }
+    .preview-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .preview-image img[hidden], .preview-image span[hidden] { display: none; }
+    .fb-wordmark { color: var(--fb-blue); font-family: Arial, sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -.05em; }
+    .fb-toolbar-icons { display: flex; gap: 8px; }
+    .fb-toolbar-icons .social-icon { box-sizing: content-box; width: 17px; height: 17px; padding: 7px; border-radius: 50%; background: var(--fb-canvas); }
+    .fb-top-tabs { display: flex; justify-content: space-around; align-items: center; flex: 0 0 36px; border-bottom: 1px solid var(--social-line); }
+    .fb-top-tabs .active { display: grid; place-items: center; align-self: stretch; width: 38px; color: var(--fb-blue); border-bottom: 2px solid var(--fb-blue); }
+    .fb-feed { background: var(--fb-canvas); padding-top: 7px; }
+    .fb-post-card { min-height: 100%; background: var(--surface); }
+    .fb-profile .social-icon { margin-left: auto; color: var(--social-muted); }
+    .fb-text { padding: 2px 12px 12px; }
+    .fb-image { height: 164px; border-top: 1px solid var(--social-line); border-bottom: 1px solid var(--social-line); }
+    .fb-image img { object-fit: cover; }
+    .fb-actions { display: flex; justify-content: space-around; gap: 4px; margin: 7px 10px 0; padding: 10px 0; color: var(--social-muted); font-size: 11px; font-weight: 650; border-top: 1px solid var(--social-line); }
+    .fb-actions span { display: inline-flex; align-items: center; gap: 5px; }
+    .fb-actions .social-icon { width: 15px; height: 15px; flex-basis: 15px; }
+    .ig-wordmark { font-family: Georgia, serif; font-style: italic; font-size: 24px; font-weight: 700; letter-spacing: -.065em; }
+    .ig-toolbar { border-bottom: 1px solid var(--social-line); }
+    .ig-profile .social-icon { margin-left: auto; }
+    .ig-image { aspect-ratio: 1 / 1; }
+    .ig-image img { position: absolute; inset: 0; object-fit: cover; }
+    .ig-image-hint { position: absolute; top: 18px; left: 0; right: 0; text-align: center; }
+    .ig-cover-title { position: absolute; z-index: 1; left: 12px; right: 12px; bottom: 14px; padding: 7px 9px; color: var(--brand-dark); font-size: 20px; font-weight: 750; line-height: 1.35; overflow-wrap: anywhere; }
+    .ig-image.has-image .ig-cover-title { color: var(--on-brand); background: var(--image-scrim); border-radius: 6px; }
+    .ig-image .ig-cover-title.preview-placeholder { color: var(--placeholder); }
+    .ig-actions { display: flex; align-items: center; gap: 12px; padding: 10px 12px 6px; }
+    .ig-actions .save { margin-left: auto; }
+    .ig-caption { padding: 5px 12px 20px; }
+    .ig-caption strong { display: inline; margin-right: 4px; font-size: 12px; }
+    .ig-caption .preview-post { display: inline; }
+    .threads-toolbar { justify-content: center; border-bottom: 1px solid var(--social-line); font-size: 17px; font-weight: 800; letter-spacing: -.04em; }
+    .threads-tabs { display: flex; justify-content: center; gap: 36px; align-items: center; flex: 0 0 36px; border-bottom: 1px solid var(--social-line); color: var(--social-muted); font-size: 11px; font-weight: 650; }
+    .threads-tabs .active { color: var(--preview-black); border-bottom: 2px solid var(--preview-black); align-self: stretch; display: grid; place-items: center; }
+    .threads-layout { display: flex; align-items: flex-start; gap: 10px; padding: 15px 12px 12px; border-bottom: 1px solid var(--social-line); }
+    .threads-copy { min-width: 0; flex: 1; }
+    .threads-name-row { display: flex; align-items: center; gap: 6px; margin: 1px 0 8px; }
+    .threads-name-row strong { font-size: 12px; }
+    .threads-name-row small { color: var(--social-muted); font-size: 10px; }
+    .threads-name-row .social-icon { margin-left: auto; }
+    .threads-media { overflow: hidden; width: 100%; margin-top: 10px; aspect-ratio: 4 / 3; border: 1px solid var(--social-line); border-radius: 10px; background: var(--surface-soft); }
+    .threads-media[hidden] { display: none; }
+    .threads-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .threads-actions { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+    .threads-actions .social-icon { width: 18px; height: 18px; flex-basis: 18px; }
+    .threads-nav .social-icon { width: 21px; height: 21px; flex-basis: 21px; }
+    .preview-note { margin: 18px 0 0; text-align: center; color: var(--ink-muted); font-size: 12px; }
+    .workspace-dialog { width: min(92vw, 760px); max-height: min(88vh, 900px); padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px var(--shadow); }
+    .workspace-dialog::backdrop { background: var(--dialog-backdrop); }
+    .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .dialog-heading h2 { margin: 0; font-size: 21px; }
+    .dialog-close { border: 0; background: transparent; color: var(--ink-muted); font-size: 24px; line-height: 1; cursor: pointer; }
+    .dialog-fields { display: grid; gap: 16px; }
+    .dialog-fields label { display: grid; gap: 8px; font-weight: 700; }
+    .ollama-settings { padding-top: 18px; border-top: 1px solid var(--line); }
+    .ollama-settings h3 { margin: 0 0 5px; font-size: 17px; }
+    .ollama-help { margin: 0 0 13px; color: var(--ink-muted); font-size: 13px; line-height: 1.5; }
+    .ollama-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
+    .ollama-controls label { flex: 1; min-width: 180px; font-size: 13px; }
+    .ollama-model { width: 100%; min-height: 40px; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+    .ollama-model:focus-visible, .ollama-connect:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    .ollama-status { min-height: 20px; margin: 10px 0 0; color: var(--ink-muted); font-size: 13px; }
+    .dialog-textarea { display: block; width: 100%; min-height: 180px; padding: 12px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px; line-height: 1.55; }
+    .dialog-textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    .prompt-textarea { min-height: min(52vh, 420px); }
+    .dialog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 18px; }
+    .dialog-status { flex: 1; margin: 0; color: var(--ink-muted); font-size: 13px; }
+    .dialog-primary { min-height: 40px; padding: 8px 18px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand); color: var(--on-brand); font-weight: 700; cursor: pointer; }
+    .saved-list { display: grid; gap: 10px; max-height: min(60vh, 520px); overflow-y: auto; }
+    .saved-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+    .saved-item-info { min-width: 0; display: grid; gap: 4px; overflow-wrap: anywhere; }
+    .saved-item-info strong { font-size: 14px; }
+    .saved-item-info small { color: var(--ink-muted); font-size: 12px; }
+    .saved-item-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .saved-item-actions button { min-height: 36px; padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--ink); font-weight: 650; cursor: pointer; }
+    .saved-item-actions button:hover { background: var(--surface-soft); }
+    .saved-item-actions button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    .saved-empty { margin: 0; padding: 25px 0; text-align: center; color: var(--ink-muted); }
+
+    @media (max-width: 1180px) {
+      .workspace { grid-template-columns: minmax(280px, 1fr) minmax(340px, 1.25fr); }
+      .preview-panel { grid-column: 1 / -1; min-height: 0; }
+    }
+    @media (max-width: 730px) {
+      .topbar { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .topbar-actions { width: 100%; justify-content: flex-start; }
+      .topbar-note { width: 100%; }
+      .saved-item { align-items: flex-start; flex-direction: column; }
+      .workspace { grid-template-columns: 1fr; gap: 16px; padding-top: 18px; }
+      .panel { min-height: 0; padding: 20px; }
+      .preview-panel { grid-column: auto; }
+      .post-textarea { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10 12 3l9 7v11h-6v-7H9v7H3z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 5.5a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.5a5.2 5.2 0 1 0-7.4 7.4L12 21l8.8-8.1a5.2 5.2 0 0 0 0-7.4Z"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9.2 9.2 0 0 1-3.8-.8L3 21l1.8-5.3A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 7v10M7 12h10"/></symbol>
+    <symbol id="i-reels" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 4l4 5M15 4l4 5m-9 4 6 3-6 3z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.5-4.5 3.2-7 8-7s7.5 2.5 8 7z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20c.3-4 2.6-6 7-6s6.7 2 7 6zM16 5a3 3 0 0 1 0 6m1 3c3.3.2 4.8 2.2 5 6"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 6 3-6 3z"/></symbol>
+    <symbol id="i-shop" viewBox="0 0 24 24"><path d="M4 9h16v12H4zM3 9l2-6h14l2 6M9 21v-7h6v7"/></symbol>
+    <symbol id="i-like" viewBox="0 0 24 24"><path d="M8 10H4v11h4zM8 10l5-7c1.4-2 3 .1 2.4 2L14 10h5.1c1.7 0 2.4 1.3 2 2.7l-1.6 6c-.4 1.5-1.4 2.3-3 2.3H8z"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4 8V5h13l3 3-3 3M20 16v3H7l-3-3 3-3"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M5 18h14l-2-3V9a5 5 0 0 0-10 0v6zM10 21h4"/></symbol>
+  </svg>
+  <header class="topbar">
+    <h1 id="workspace-title"></h1>
+    <div class="topbar-actions"><span class="topbar-note">貼文草稿的整理空間</span><button class="settings-trigger" id="open-library" type="button">📁 我的貼文</button><button class="settings-trigger" id="new-post" type="button">＋ 新的一篇</button><button class="settings-trigger" id="open-settings" type="button">⚙ 設定</button></div>
+  </header>
+
+  <main class="workspace">
+    <section class="panel" aria-labelledby="material-title">
+      <div class="panel-heading">
+        <h2 id="material-title">素材卡</h2>
+        <p>先整理要說的重點，再撰寫平台貼文。</p>
+      </div>
+      <form class="form-fields" id="material-fields" autocomplete="off"></form>
+      <div class="material-actions"><button class="compose-button" id="compose-prompt" type="button">🧩 組好指令</button><button class="compose-button save-button" id="save-post" type="button">💾 存檔</button><button class="compose-button ai-generate-button" id="generate-posts" type="button">✨ AI 產生貼文</button></div>
+      <p class="save-status" id="save-status" role="status" aria-live="polite"></p>
+      <p class="save-status" id="ai-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="editor-title">
+      <div class="panel-heading">
+        <h2 id="editor-title">貼文編輯</h2>
+        <p>選擇平台後，在下方整理貼文草稿。</p>
+      </div>
+      <span class="platform-label">平台</span>
+      <div class="platform-tabs" id="platform-tabs" aria-label="平台分頁"></div>
+      <label class="post-label" id="post-label" for="post-content">IG 貼文內容</label>
+      <textarea class="post-textarea" id="post-content" placeholder="在這裡撰寫貼文內容……"></textarea>
+      <div class="upload-area">
+        <span class="upload-title">貼文圖片</span>
+        <div class="upload-controls">
+          <input class="upload-input" id="post-image" type="file" accept="image/*" aria-describedby="upload-status">
+          <label class="upload-button" for="post-image">選擇圖片</label>
+          <span class="upload-status" id="upload-status" role="status" aria-live="polite">尚未選擇圖片</span>
+          <button class="remove-button" id="remove-image" type="button" hidden>移除圖片</button>
+        </div>
+        <p class="editor-help">圖片會顯示在手機預覽；離開頁面後不會保留。</p>
+      </div>
+      <p class="editor-help">各平台貼文分開保留，輸入時手機預覽會同步更新。</p>
+    </section>
+
+    <aside class="panel preview-panel" aria-labelledby="preview-title">
+      <div class="panel-heading preview-heading">
+        <div>
+          <h2 id="preview-title">手機預覽</h2>
+          <p>查看目前平台的貼文預覽。</p>
+        </div>
+        <button class="upload-button" id="publish-post" type="button" aria-describedby="publish-status" disabled>一鍵上傳</button>
+      </div>
+      <div class="preview-wrap">
+        <div class="phone" aria-label="手機貼文預覽示意">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <div class="phone-content">
+            <div class="device-status" aria-hidden="true"><span id="device-clock"></span><span class="device-status-icons">▂▄▆　◉ <span class="device-battery"></span></span></div>
+            <article class="preview-platform" id="preview-IG" aria-label="IG 貼文預覽">
+              <div class="app-toolbar ig-toolbar">
+                <span class="ig-wordmark">Instagram</span>
+                <span class="toolbar-actions" aria-hidden="true"><svg class="social-icon large"><use href="#i-heart"></use></svg><svg class="social-icon large"><use href="#i-send"></use></svg></span>
+              </div>
+              <div class="feed-scroll">
+                <div class="phone-profile ig-profile">
+                  <span class="avatar" id="ig-avatar" aria-hidden="true"></span>
+                  <span class="profile-name"><strong id="ig-account"></strong></span>
+                  <svg class="social-icon small" aria-hidden="true"><use href="#i-dots"></use></svg>
+                </div>
+                <div class="preview-image ig-image" id="ig-image">
+                  <img id="ig-photo" alt="已選擇的貼文圖片" hidden>
+                  <span class="ig-image-hint" id="ig-image-hint">圖片預留區</span>
+                  <span class="ig-cover-title preview-placeholder" id="ig-cover-title">名稱、材質的文字會顯示在這裡</span>
+                </div>
+                <div class="ig-actions" aria-label="喜歡、留言、分享、珍藏">
+                  <svg class="social-icon large" aria-hidden="true"><use href="#i-heart"></use></svg>
+                  <svg class="social-icon large" aria-hidden="true"><use href="#i-comment"></use></svg>
+                  <svg class="social-icon large" aria-hidden="true"><use href="#i-send"></use></svg>
+                  <svg class="social-icon large save" aria-hidden="true"><use href="#i-save"></use></svg>
+                </div>
+                <div class="ig-caption"><strong id="ig-caption-account"></strong><p class="preview-post preview-placeholder" id="ig-post">貼文內容會顯示在這裡。</p></div>
+              </div>
+              <div class="app-nav" aria-hidden="true"><svg class="social-icon"><use href="#i-home"></use></svg><svg class="social-icon"><use href="#i-search"></use></svg><svg class="social-icon"><use href="#i-plus"></use></svg><svg class="social-icon"><use href="#i-reels"></use></svg><svg class="social-icon"><use href="#i-user"></use></svg></div>
+            </article>
+            <article class="preview-platform" id="preview-Threads" aria-label="Threads 貼文預覽" hidden>
+              <div class="app-toolbar threads-toolbar">Threads</div>
+              <div class="threads-tabs"><span class="active">為你推薦</span><span>追蹤中</span></div>
+              <div class="feed-scroll">
+                <div class="threads-layout">
+                  <span class="avatar" id="threads-avatar" aria-hidden="true"></span>
+                  <div class="threads-copy">
+                    <div class="threads-name-row"><strong id="threads-account"></strong><small>剛剛</small><svg class="social-icon small" aria-hidden="true"><use href="#i-dots"></use></svg></div>
+                    <p class="preview-post preview-placeholder" id="threads-post">貼文內容會顯示在這裡。</p>
+                    <div class="threads-media" id="threads-media" hidden><img id="threads-photo" alt="已選擇的貼文圖片" hidden></div>
+                    <div class="threads-actions" aria-label="喜歡、回覆、轉發、分享"><svg class="social-icon" aria-hidden="true"><use href="#i-heart"></use></svg><svg class="social-icon" aria-hidden="true"><use href="#i-comment"></use></svg><svg class="social-icon" aria-hidden="true"><use href="#i-repeat"></use></svg><svg class="social-icon" aria-hidden="true"><use href="#i-send"></use></svg></div>
+                  </div>
+                </div>
+              </div>
+              <div class="app-nav threads-nav" aria-hidden="true"><svg class="social-icon"><use href="#i-home"></use></svg><svg class="social-icon"><use href="#i-search"></use></svg><svg class="social-icon"><use href="#i-plus"></use></svg><svg class="social-icon"><use href="#i-heart"></use></svg><svg class="social-icon"><use href="#i-user"></use></svg></div>
+            </article>
+            <article class="preview-platform" id="preview-FB" aria-label="FB 貼文預覽" hidden>
+              <div class="app-toolbar fb-toolbar">
+                <span class="fb-wordmark">facebook</span>
+                <span class="fb-toolbar-icons" aria-hidden="true"><svg class="social-icon"><use href="#i-plus"></use></svg><svg class="social-icon"><use href="#i-search"></use></svg><svg class="social-icon"><use href="#i-comment"></use></svg></span>
+              </div>
+              <div class="fb-top-tabs" aria-hidden="true"><span class="active"><svg class="social-icon"><use href="#i-home"></use></svg></span><svg class="social-icon"><use href="#i-users"></use></svg><svg class="social-icon"><use href="#i-video"></use></svg><svg class="social-icon"><use href="#i-shop"></use></svg><svg class="social-icon"><use href="#i-menu"></use></svg></div>
+              <div class="feed-scroll fb-feed">
+                <div class="fb-post-card">
+                  <div class="phone-profile fb-profile">
+                    <span class="avatar" id="fb-avatar" aria-hidden="true"></span>
+                    <span class="profile-name"><strong id="fb-brand"></strong><small>剛剛</small></span>
+                    <svg class="social-icon small" aria-hidden="true"><use href="#i-dots"></use></svg>
+                  </div>
+                  <p class="preview-post preview-placeholder fb-text" id="fb-post">貼文內容會顯示在這裡。</p>
+                  <div class="preview-image fb-image"><span id="fb-image-hint">圖片預留區</span><img id="fb-photo" alt="已選擇的貼文圖片" hidden></div>
+                  <div class="fb-actions"><span><svg class="social-icon" aria-hidden="true"><use href="#i-like"></use></svg>讚</span><span><svg class="social-icon" aria-hidden="true"><use href="#i-comment"></use></svg>留言</span><span><svg class="social-icon" aria-hidden="true"><use href="#i-send"></use></svg>分享</span></div>
+                </div>
+              </div>
+            </article>
+            <div class="device-home" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+      <p class="preview-note" id="publish-status" role="status">尚未連接社群發布服務，暫時無法發布貼文。</p>
+    </aside>
+  </main>
+
+  <dialog class="workspace-dialog" id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-heading"><h2 id="settings-title">設定</h2><button class="dialog-close" type="button" data-close-dialog aria-label="關閉設定">×</button></div>
+    <div class="dialog-fields">
+      <label for="brand-spec">品牌規格<textarea class="dialog-textarea" id="brand-spec" placeholder="在這裡貼上品牌規格全文"></textarea></label>
+      <label for="checklist">檢查清單<textarea class="dialog-textarea" id="checklist" placeholder="在這裡貼上檢查清單全文"></textarea></label>
+      <section class="ollama-settings" aria-labelledby="ollama-title">
+        <h3 id="ollama-title">本地 AI（Ollama）</h3>
+        <p class="ollama-help">請先啟動 Ollama，並從「開啟工作台.cmd」開啟網頁。</p>
+        <div class="ollama-controls"><button class="dialog-primary ollama-connect" id="connect-ollama" type="button">一鍵連接 Ollama</button><label for="ollama-model">選擇模型<select class="ollama-model" id="ollama-model" disabled><option value="">尚未連接</option></select></label></div>
+        <p class="ollama-status" id="ollama-status" role="status" aria-live="polite">尚未連接 Ollama。</p>
+      </section>
+    </div>
+    <div class="dialog-actions"><p class="dialog-status" id="settings-status" role="status" aria-live="polite"></p><button class="dialog-primary" id="save-settings" type="button">儲存</button></div>
+  </dialog>
+
+  <dialog class="workspace-dialog" id="prompt-dialog" aria-labelledby="prompt-title">
+    <div class="dialog-heading"><h2 id="prompt-title">組好的指令</h2><button class="dialog-close" type="button" data-close-dialog aria-label="關閉指令">×</button></div>
+    <textarea class="dialog-textarea prompt-textarea" id="prompt-output" readonly aria-label="組好的指令"></textarea>
+    <div class="dialog-actions"><p class="dialog-status" id="copy-status" role="status" aria-live="polite"></p><button class="dialog-primary" id="copy-prompt" type="button">複製</button></div>
+  </dialog>
+
+  <dialog class="workspace-dialog" id="library-dialog" aria-labelledby="library-title">
+    <div class="dialog-heading"><h2 id="library-title">我的貼文</h2><button class="dialog-close" type="button" data-close-dialog aria-label="關閉我的貼文">×</button></div>
+    <div class="saved-list" id="saved-list"></div>
+    <p class="dialog-status" id="library-status" role="status" aria-live="polite"></p>
+  </dialog>
+
+  <dialog class="workspace-dialog" id="ai-result-dialog" aria-labelledby="ai-result-title">
+    <div class="dialog-heading"><h2 id="ai-result-title">AI 回覆</h2><button class="dialog-close" type="button" data-close-dialog aria-label="關閉 AI 回覆">×</button></div>
+    <p class="ollama-help" id="ai-result-help"></p>
+    <textarea class="dialog-textarea prompt-textarea" id="ai-result-text" readonly aria-label="AI 回覆內容"></textarea>
+  </dialog>
+
+  <script>
+    // 品牌、平台與素材卡欄位都集中在 JavaScript 最上面，方便日後修改。
+    const WORKSPACE = {
+      brandName: '地板拼貼',
+      accountName: '待補',
+      platforms: ['IG', 'Threads', 'FB'],
+      materialFields: [
+        { id: 'date', label: '日期', type: 'date', required: false },
+        { id: 'name-material', label: '名稱、材質', required: true, example: '例如：選樣板很美，鋪滿全室卻變壓迫' },
+        { id: 'feature', label: '解決功能／特色', required: true, example: '例如：線上 3D 實景預覽光影走向' },
+        { id: 'audience', label: '目標對象', required: true, example: '例如：正在挑選木地板的新成屋屋主' },
+        { id: 'cta', label: '行動呼籲（CTA）', required: false, example: '例如：點擊個人檔案首頁連結免費試算' },
+        { id: 'avoid', label: '先不要講的', required: false, example: '例如：實體門市參觀、特定品牌報價比較' }
+      ]
+    };
+
+    function postName(headline, at, chosenDate) {
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(chosenDate || '')
+        ? chosenDate.replace(/-/g, '/')
+        : `${at.getFullYear()}/${String(at.getMonth() + 1).padStart(2, '0')}/${String(at.getDate()).padStart(2, '0')}`;
+      return `${date}｜${headline.trim().replace(/\s+/g, ' ') || '未命名貼文'}`;
+    }
+
+    function makeSavedPost(previous, newId, materials, posts, at) {
+      return {
+        id: previous ? previous.id : newId,
+        name: postName(materials['name-material'] || '', at, materials.date),
+        savedAt: at.toISOString(),
+        materials: { ...materials },
+        posts: { ...posts }
+      };
+    }
+
+    // 品牌與欄位由上方設定建立；貼文草稿只儲存在這台裝置的瀏覽器。
+    document.title = `${WORKSPACE.brandName}｜社群工作台`;
+    document.getElementById('workspace-title').textContent = `${WORKSPACE.brandName}｜社群工作台`;
+    document.getElementById('device-clock').textContent = new Intl.DateTimeFormat('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    const accountMissing = !WORKSPACE.accountName || WORKSPACE.accountName === '待補';
+    const accountLabel = accountMissing ? '帳號待補' : WORKSPACE.accountName;
+    ['ig-avatar', 'threads-avatar', 'fb-avatar'].forEach((id) => {
+      document.getElementById(id).textContent = WORKSPACE.brandName.slice(0, 1);
+    });
+    ['ig-account', 'ig-caption-account', 'threads-account'].forEach((id) => {
+      const account = document.getElementById(id);
+      account.textContent = accountLabel;
+      account.classList.toggle('preview-placeholder', accountMissing);
+    });
+    document.getElementById('fb-brand').textContent = WORKSPACE.brandName;
+
+    const fieldsHost = document.getElementById('material-fields');
+    WORKSPACE.materialFields.forEach((field) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'field';
+      const label = document.createElement('label');
+      label.htmlFor = field.id;
+      label.textContent = field.label;
+      const tag = document.createElement('span');
+      tag.className = field.required ? 'required' : 'optional';
+      tag.textContent = field.required ? '＊必填' : '選填';
+      label.appendChild(tag);
+      const input = document.createElement(field.type === 'date' ? 'input' : 'textarea');
+      input.id = field.id;
+      input.name = field.id;
+      if (field.type === 'date') input.type = 'date';
+      else {
+        input.rows = 2;
+        input.placeholder = field.example;
+      }
+      input.required = field.required;
+      wrapper.append(label, input);
+      fieldsHost.appendChild(wrapper);
+    });
+
+    const tabsHost = document.getElementById('platform-tabs');
+    const postContent = document.getElementById('post-content');
+    const postLabel = document.getElementById('post-label');
+    const headlineInput = document.getElementById('name-material');
+    const draftKey = (platform) => `社群工作台:${WORKSPACE.brandName}:貼文:${platform}`;
+    function readDraft(platform) {
+      try { return localStorage.getItem(draftKey(platform)) || ''; }
+      catch { return ''; }
+    }
+    function saveDraft(platform, value) {
+      try { localStorage.setItem(draftKey(platform), value); }
+      catch { /* 瀏覽器不允許儲存時，仍可在目前頁面切換草稿。 */ }
+    }
+    const libraryKey = `社群工作台:${WORKSPACE.brandName}:我的貼文`;
+    const workingKey = `社群工作台:${WORKSPACE.brandName}:正在寫`;
+    function readStoredJSON(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; }
+      catch { return fallback; }
+    }
+    let savedPosts = readStoredJSON(libraryKey, []);
+    if (!Array.isArray(savedPosts)) savedPosts = [];
+    const workingCopy = readStoredJSON(workingKey, null);
+    WORKSPACE.materialFields.forEach((field) => {
+      const value = workingCopy && workingCopy.materials && workingCopy.materials[field.id];
+      document.getElementById(field.id).value = typeof value === 'string' ? value : '';
+    });
+    const platformDrafts = Object.fromEntries(WORKSPACE.platforms.map((platform) => {
+      const value = workingCopy && workingCopy.posts && workingCopy.posts[platform];
+      return [platform, typeof value === 'string' ? value : readDraft(platform)];
+    }));
+    let activeSavedId = workingCopy && savedPosts.some((post) => post.id === workingCopy.savedId) ? workingCopy.savedId : null;
+    let activePlatform = workingCopy && WORKSPACE.platforms.includes(workingCopy.activePlatform) ? workingCopy.activePlatform : WORKSPACE.platforms[0];
+    postContent.value = platformDrafts[activePlatform];
+
+    function materialValues() {
+      return Object.fromEntries(WORKSPACE.materialFields.map((field) => [field.id, document.getElementById(field.id).value]));
+    }
+    function postValues() {
+      return Object.fromEntries(WORKSPACE.platforms.map((platform) => [platform, platform === activePlatform ? postContent.value : platformDrafts[platform] || '']));
+    }
+    function persistWorkingCopy() {
+      platformDrafts[activePlatform] = postContent.value;
+      try {
+        localStorage.setItem(workingKey, JSON.stringify({ savedId: activeSavedId, activePlatform, materials: materialValues(), posts: postValues() }));
+      } catch {
+        document.getElementById('save-status').textContent = '自動暫存失敗，請檢查瀏覽器儲存空間。';
+      }
+    }
+
+    function renderPreview() {
+      WORKSPACE.platforms.forEach((platform) => {
+        document.getElementById(`preview-${platform}`).hidden = platform !== activePlatform;
+      });
+      postLabel.textContent = `${activePlatform} 貼文內容`;
+      postContent.placeholder = `在這裡撰寫 ${activePlatform} 貼文內容……`;
+      const post = document.getElementById(`${activePlatform.toLowerCase()}-post`);
+      const hasText = Boolean(postContent.value.trim());
+      post.textContent = hasText ? postContent.value : '貼文內容會顯示在這裡。';
+      post.classList.toggle('preview-placeholder', !hasText);
+      const coverTitle = document.getElementById('ig-cover-title');
+      const headline = headlineInput.value.trim();
+      coverTitle.textContent = headline || '名稱、材質的文字會顯示在這裡';
+      coverTitle.classList.toggle('preview-placeholder', !headline);
+    }
+
+    function selectPlatform(platform) {
+      if (platform === activePlatform) return;
+      platformDrafts[activePlatform] = postContent.value;
+      saveDraft(activePlatform, postContent.value);
+      activePlatform = platform;
+      postContent.value = platformDrafts[platform] || '';
+      updatePlatformTabs();
+      persistWorkingCopy();
+      renderPreview();
+    }
+
+    function updatePlatformTabs() {
+      Array.from(tabsHost.children).forEach((tab) => {
+        const selected = tab.textContent === activePlatform;
+        tab.classList.toggle('is-selected', selected);
+        tab.setAttribute('aria-pressed', String(selected));
+      });
+    }
+
+    WORKSPACE.platforms.forEach((platform) => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = `platform-tab${platform === activePlatform ? ' is-selected' : ''}`;
+      tab.textContent = platform;
+      tab.setAttribute('aria-label', `${platform} 平台`);
+      tab.setAttribute('aria-pressed', String(platform === activePlatform));
+      tab.addEventListener('click', () => selectPlatform(platform));
+      tabsHost.appendChild(tab);
+    });
+    postContent.addEventListener('input', () => {
+      platformDrafts[activePlatform] = postContent.value;
+      saveDraft(activePlatform, postContent.value);
+      persistWorkingCopy();
+      renderPreview();
+    });
+    fieldsHost.addEventListener('input', () => {
+      persistWorkingCopy();
+      renderPreview();
+    });
+    renderPreview();
+
+    const imageInput = document.getElementById('post-image');
+    const imagePreviews = [document.getElementById('ig-photo'), document.getElementById('fb-photo'), document.getElementById('threads-photo')];
+    const imageHints = [document.getElementById('ig-image-hint'), document.getElementById('fb-image-hint')];
+    const igImage = document.getElementById('ig-image');
+    const threadsMedia = document.getElementById('threads-media');
+    const uploadStatus = document.getElementById('upload-status');
+    const removeImageButton = document.getElementById('remove-image');
+    let imageUrl = null;
+
+    function clearImage() {
+      imageInput.value = '';
+      imagePreviews.forEach((image) => { image.hidden = true; image.removeAttribute('src'); });
+      imageHints.forEach((hint) => { hint.hidden = false; });
+      igImage.classList.remove('has-image');
+      threadsMedia.hidden = true;
+      uploadStatus.textContent = '尚未選擇圖片';
+      removeImageButton.hidden = true;
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      imageUrl = null;
+    }
+
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files && imageInput.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        clearImage();
+        uploadStatus.textContent = '請選擇圖片檔案。';
+        return;
+      }
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      imageUrl = URL.createObjectURL(file);
+      imagePreviews.forEach((image) => { image.src = imageUrl; image.hidden = false; });
+      imageHints.forEach((hint) => { hint.hidden = true; });
+      igImage.classList.add('has-image');
+      threadsMedia.hidden = false;
+      uploadStatus.textContent = `已選擇：${file.name}`;
+      removeImageButton.hidden = false;
+    });
+    imagePreviews.forEach((image) => image.addEventListener('error', () => {
+      clearImage();
+      uploadStatus.textContent = '無法顯示這張圖片，請重新選擇。';
+    }));
+    removeImageButton.addEventListener('click', clearImage);
+    window.addEventListener('pagehide', () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    });
+
+    const saveStatus = document.getElementById('save-status');
+    const libraryDialog = document.getElementById('library-dialog');
+    const savedList = document.getElementById('saved-list');
+    const libraryStatus = document.getElementById('library-status');
+    function storeSavedPosts(nextPosts) {
+      try {
+        localStorage.setItem(libraryKey, JSON.stringify(nextPosts));
+        savedPosts = nextPosts;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    function freshPostId() {
+      return globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+    function displaySaveTime(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '時間未記錄' : new Intl.DateTimeFormat('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+    }
+    function loadPost(record) {
+      WORKSPACE.materialFields.forEach((field) => {
+        const value = record.materials && record.materials[field.id];
+        document.getElementById(field.id).value = typeof value === 'string' ? value : '';
+      });
+      WORKSPACE.platforms.forEach((platform) => {
+        const value = record.posts && record.posts[platform];
+        platformDrafts[platform] = typeof value === 'string' ? value : '';
+      });
+      activeSavedId = record.id;
+      activePlatform = WORKSPACE.platforms[0];
+      postContent.value = platformDrafts[activePlatform];
+      clearImage();
+      updatePlatformTabs();
+      renderPreview();
+      persistWorkingCopy();
+      saveStatus.textContent = `已打開：${record.name}`;
+    }
+    function renderSavedList() {
+      savedList.replaceChildren();
+      if (!savedPosts.length) {
+        const empty = document.createElement('p');
+        empty.className = 'saved-empty';
+        empty.textContent = '還沒有存過的貼文。';
+        savedList.appendChild(empty);
+        return;
+      }
+      [...savedPosts].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)).forEach((record) => {
+        const row = document.createElement('div');
+        row.className = 'saved-item';
+        const info = document.createElement('div');
+        info.className = 'saved-item-info';
+        const name = document.createElement('strong');
+        name.textContent = record.name;
+        const time = document.createElement('small');
+        time.textContent = `存檔時間：${displaySaveTime(record.savedAt)}`;
+        info.append(name, time);
+        const actions = document.createElement('div');
+        actions.className = 'saved-item-actions';
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.textContent = '打開';
+        open.addEventListener('click', () => {
+          loadPost(record);
+          libraryDialog.close();
+        });
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '刪除';
+        remove.addEventListener('click', () => {
+          if (!window.confirm('確定嗎？')) return;
+          if (!storeSavedPosts(savedPosts.filter((post) => post.id !== record.id))) {
+            libraryStatus.textContent = '刪除失敗，請檢查瀏覽器儲存空間。';
+            return;
+          }
+          if (activeSavedId === record.id) {
+            activeSavedId = null;
+            persistWorkingCopy();
+          }
+          libraryStatus.textContent = '已刪除貼文。';
+          renderSavedList();
+        });
+        actions.append(open, remove);
+        row.append(info, actions);
+        savedList.appendChild(row);
+      });
+    }
+    document.getElementById('save-post').addEventListener('click', () => {
+      const previous = savedPosts.find((post) => post.id === activeSavedId) || null;
+      const record = makeSavedPost(previous, freshPostId(), materialValues(), postValues(), new Date());
+      const nextPosts = previous ? savedPosts.map((post) => post.id === previous.id ? record : post) : [record, ...savedPosts];
+      if (!storeSavedPosts(nextPosts)) {
+        saveStatus.textContent = '存檔失敗，請檢查瀏覽器儲存空間。';
+        return;
+      }
+      activeSavedId = record.id;
+      persistWorkingCopy();
+      saveStatus.textContent = `已存檔：${record.name}（${displaySaveTime(record.savedAt)}）`;
+    });
+    document.getElementById('open-library').addEventListener('click', () => {
+      libraryStatus.textContent = '';
+      renderSavedList();
+      libraryDialog.showModal();
+    });
+    document.getElementById('new-post').addEventListener('click', () => {
+      activeSavedId = null;
+      WORKSPACE.materialFields.forEach((field) => { document.getElementById(field.id).value = ''; });
+      WORKSPACE.platforms.forEach((platform) => {
+        platformDrafts[platform] = '';
+        saveDraft(platform, '');
+      });
+      activePlatform = WORKSPACE.platforms[0];
+      postContent.value = '';
+      clearImage();
+      updatePlatformTabs();
+      renderPreview();
+      persistWorkingCopy();
+      saveStatus.textContent = '已開啟新的一篇。';
+    });
+
+    function addWeekdaysToDates(value) {
+      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+      return value.replace(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?!\d)(?![（(][日一二三四五六][）)])/g, (match, year, month, day) => {
+        const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+        if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return match;
+        return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}（${weekdays[date.getUTCDay()]}）`;
+      });
+    }
+
+    function buildPrompt(workspace, materialValues, brandSpec, checklist, outputFormat = 'plain') {
+      const platforms = ['FB', 'IG', 'Threads'].filter((platform) => workspace.platforms.includes(platform));
+      const names = platforms.map((platform) => `【${platform}】`).join('');
+      const materials = workspace.materialFields.map((field) => `${field.label}：${addWeekdaysToDates(materialValues[field.id] || '') || '（未填）'}`);
+      const formatRule = outputFormat === 'json'
+        ? `回覆格式：只輸出 JSON 物件，包含 ${platforms.join('、')} 三個貼文文字欄位和 questions 問題陣列。每篇貼文只放在自己的欄位；待確認的事放進 questions，不要放進貼文。不要加 Markdown 或其他說明。`
+        : `回覆格式：每個平台用${names}這樣的標題分開。`;
+      const sections = [
+        '（這段只要回覆文字，不要建立或修改任何檔案。）',
+        `你是${workspace.brandName}的小編。請照品牌規格，用素材卡的內容，寫${platforms.join('、')}的貼文，每個平台一篇。`,
+        '規則：素材卡上沒有的事不要寫；只能在某個平台說的，只寫在那個平台；先不要講的，每一篇都不能寫；還不確定的不要寫，寫完列出來問我。',
+        formatRule,
+        `【品牌規格】\n${brandSpec || '（未填）'}`,
+        `【素材卡】\n${materials.join('\n')}`
+      ];
+      if (checklist.trim()) sections.push(`寫完照這張清單檢查，有 ❌ 先自己改好。\n${checklist}`);
+      return sections.join('\n\n');
+    }
+
+    function parseGeneratedPosts(raw, platforms) {
+      const result = JSON.parse(raw);
+      if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('AI 回覆格式不正確');
+      const posts = {};
+      platforms.forEach((platform) => {
+        if (typeof result[platform] !== 'string' || !result[platform].trim()) throw new Error(`${platform} 貼文缺少內容`);
+        posts[platform] = result[platform].trim();
+      });
+      const questions = Array.isArray(result.questions) ? result.questions.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()) : [];
+      return { posts, questions };
+    }
+
+    const settingsDialog = document.getElementById('settings-dialog');
+    const promptDialog = document.getElementById('prompt-dialog');
+    const brandSpecInput = document.getElementById('brand-spec');
+    const checklistInput = document.getElementById('checklist');
+    const settingsStatus = document.getElementById('settings-status');
+    const promptOutput = document.getElementById('prompt-output');
+    const copyStatus = document.getElementById('copy-status');
+    const ollamaModel = document.getElementById('ollama-model');
+    const ollamaStatus = document.getElementById('ollama-status');
+    const connectOllamaButton = document.getElementById('connect-ollama');
+    const aiStatus = document.getElementById('ai-status');
+    const generateButton = document.getElementById('generate-posts');
+    const ollamaBase = 'http://127.0.0.1:11434';
+    let preferredOllamaModel = 'qwen2.5:3b';
+    let connectedModels = [];
+    const settingsKey = `社群工作台:${WORKSPACE.brandName}:設定`;
+    try {
+      const savedSettings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+      brandSpecInput.value = typeof savedSettings.brandSpec === 'string' ? savedSettings.brandSpec : '';
+      checklistInput.value = typeof savedSettings.checklist === 'string' ? savedSettings.checklist : '';
+      if (typeof savedSettings.ollamaModel === 'string' && savedSettings.ollamaModel) preferredOllamaModel = savedSettings.ollamaModel;
+    } catch { /* 儲存內容無法讀取時，維持空白供重新輸入。 */ }
+
+    document.getElementById('open-settings').addEventListener('click', () => {
+      settingsStatus.textContent = '';
+      settingsDialog.showModal();
+    });
+    document.querySelectorAll('[data-close-dialog]').forEach((button) => {
+      button.addEventListener('click', () => button.closest('dialog').close());
+    });
+    document.getElementById('save-settings').addEventListener('click', () => {
+      try {
+        localStorage.setItem(settingsKey, JSON.stringify({ brandSpec: brandSpecInput.value, checklist: checklistInput.value, ollamaModel: ollamaModel.value || preferredOllamaModel }));
+        settingsStatus.textContent = '已儲存在這個瀏覽器。';
+      } catch {
+        settingsStatus.textContent = '無法儲存，請檢查瀏覽器儲存設定。';
+      }
+    });
+    connectOllamaButton.addEventListener('click', async () => {
+      connectOllamaButton.disabled = true;
+      ollamaStatus.textContent = '正在連接本機 Ollama……';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(`${ollamaBase}/api/tags`, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const names = Array.isArray(data.models) ? data.models.map((model) => model.name).filter((name) => typeof name === 'string' && name && !name.endsWith(':cloud')) : [];
+        if (!names.length) throw new Error('沒有已安裝模型');
+        connectedModels = names;
+        const previous = ollamaModel.value || preferredOllamaModel;
+        ollamaModel.replaceChildren();
+        names.forEach((name) => {
+          const option = document.createElement('option');
+          option.value = name;
+          option.textContent = name;
+          ollamaModel.appendChild(option);
+        });
+        ollamaModel.disabled = false;
+        ollamaModel.value = names.includes(previous) ? previous : names[0];
+        preferredOllamaModel = ollamaModel.value;
+        ollamaStatus.textContent = `已連接 Ollama，使用模型：${ollamaModel.value}。`;
+      } catch {
+        connectedModels = [];
+        ollamaModel.disabled = true;
+        ollamaStatus.textContent = '連接失敗。請確認 Ollama 已啟動，並用本機網址開啟工作台。';
+      } finally {
+        clearTimeout(timeout);
+        connectOllamaButton.disabled = false;
+      }
+    });
+    ollamaModel.addEventListener('change', () => {
+      preferredOllamaModel = ollamaModel.value;
+      ollamaStatus.textContent = `已連接 Ollama，使用模型：${ollamaModel.value}。`;
+    });
+    function showAiResult(title, help, content) {
+      document.getElementById('ai-result-title').textContent = title;
+      document.getElementById('ai-result-help').textContent = help;
+      document.getElementById('ai-result-text').value = content;
+      document.getElementById('ai-result-dialog').showModal();
+    }
+    generateButton.addEventListener('click', async () => {
+      if (!connectedModels.includes(ollamaModel.value)) {
+        aiStatus.textContent = '請先在設定中連接 Ollama 並選擇模型。';
+        settingsDialog.showModal();
+        return;
+      }
+      if (!fieldsHost.reportValidity()) {
+        aiStatus.textContent = '請先填好素材卡的必填欄位。';
+        return;
+      }
+      if (!brandSpecInput.value.trim()) {
+        aiStatus.textContent = '請先在設定中填入品牌規格。';
+        settingsDialog.showModal();
+        return;
+      }
+      const originalPosts = postValues();
+      if (Object.values(originalPosts).some((post) => post.trim()) && !window.confirm('產生的新貼文會覆蓋目前三個平台的草稿，確定嗎？')) return;
+      const originalMaterials = materialValues();
+      const originalState = JSON.stringify({ materials: originalMaterials, posts: originalPosts });
+      const properties = Object.fromEntries(WORKSPACE.platforms.map((platform) => [platform, { type: 'string' }]));
+      properties.questions = { type: 'array', items: { type: 'string' } };
+      const schema = { type: 'object', properties, required: [...WORKSPACE.platforms, 'questions'], additionalProperties: false };
+      generateButton.disabled = true;
+      aiStatus.textContent = '本地 AI 正在產生貼文，可能需要一些時間……';
+      let rawReply = '';
+      try {
+        const response = await fetch(`${ollamaBase}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: ollamaModel.value, prompt: buildPrompt(WORKSPACE, originalMaterials, brandSpecInput.value, checklistInput.value, 'json'), format: schema, stream: false })
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        rawReply = typeof data.response === 'string' ? data.response : '';
+        const result = parseGeneratedPosts(rawReply, WORKSPACE.platforms);
+        if (JSON.stringify({ materials: materialValues(), posts: postValues() }) !== originalState) {
+          aiStatus.textContent = '產生期間內容有變動，尚未覆蓋目前草稿。';
+          showAiResult('AI 回覆', '以下是本次產生的原始內容，可自行複製使用。', rawReply);
+          return;
+        }
+        WORKSPACE.platforms.forEach((platform) => {
+          platformDrafts[platform] = result.posts[platform];
+          saveDraft(platform, result.posts[platform]);
+        });
+        postContent.value = platformDrafts[activePlatform];
+        persistWorkingCopy();
+        renderPreview();
+        aiStatus.textContent = '已產生三個平台的貼文，請檢查內容後再存檔。';
+        if (result.questions.length) showAiResult('待確認事項', 'AI 沒有把這些未確認資訊寫進貼文。', result.questions.map((question, index) => `${index + 1}. ${question}`).join('\n'));
+      } catch {
+        aiStatus.textContent = 'AI 產生失敗，原本的貼文沒有被覆蓋。請確認模型可用。';
+        if (rawReply) showAiResult('AI 回覆需要檢查', '模型沒有回傳完整的三平台格式；以下是原始回覆。', rawReply);
+      } finally {
+        generateButton.disabled = false;
+      }
+    });
+    document.getElementById('compose-prompt').addEventListener('click', () => {
+      const materialValues = Object.fromEntries(WORKSPACE.materialFields.map((field) => [field.id, document.getElementById(field.id).value]));
+      promptOutput.value = buildPrompt(WORKSPACE, materialValues, brandSpecInput.value, checklistInput.value);
+      copyStatus.textContent = '';
+      promptDialog.showModal();
+    });
+    document.getElementById('copy-prompt').addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(promptOutput.value);
+        } else {
+          promptOutput.select();
+          if (!document.execCommand('copy')) throw new Error('copy failed');
+        }
+        copyStatus.textContent = '已複製指令。';
+      } catch {
+        copyStatus.textContent = '無法自動複製，請選取文字後複製。';
+        promptOutput.focus();
+        promptOutput.select();
+      }
+    });
+  </script>
+</body>
+</html>
