@@ -33,6 +33,7 @@
       --focus: rgba(78, 13, 175, .18);
       --dialog-backdrop: rgba(24, 17, 34, .58);
       --error: #b42318;
+      --rich-menu-photo-shade: rgba(0, 0, 0, .42);
       --warning: #8a5700;
       --review-fail-bg: #fff0ef;
       --review-warning-bg: #fff6d6;
@@ -254,6 +255,20 @@
     .line-image[hidden] { display: none; }
     .line-image img { width: 100%; height: 100%; object-fit: cover; }
     .line-platform .app-nav { background: var(--surface); }
+    .line-rich-menu { flex: 0 0 auto; background: var(--surface); }
+    .line-rich-menu-bar { padding: 6px 8px; text-align: center; font-size: 12px; border-block: 1px solid var(--line); }
+    .rich-menu-canvas { display: block; width: 100%; height: auto; }
+    #rich-menu-preview { max-width: 600px; border: 1px solid var(--line); }
+    .rich-menu-controls, .rich-menu-row { display: grid; gap: 8px; }
+    .rich-menu-controls { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
+    .rich-menu-row { grid-template-columns: auto minmax(62px, .5fr) minmax(90px, 1fr) minmax(100px, 1fr) minmax(120px, 1.5fr); align-items: end; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .rich-menu-row strong { align-self: center; }
+    #rich-menu-dialog input, #rich-menu-dialog select { width: 100%; min-width: 0; padding: 6px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+    #rich-menu-dialog label { font-size: 13px; }
+    #rich-menu-dialog .dialog-actions { flex-wrap: wrap; }
+    #rich-menu-errors, #rich-menu-status { margin: 0; white-space: pre-line; }
+    #rich-menu-errors, #rich-menu-status.is-error { color: var(--error); }
+    @media (max-width: 570px) { .rich-menu-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rich-menu-row strong { grid-column: 1 / -1; } }
     .fb-wordmark { color: var(--fb-blue); font-family: Arial, sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -.05em; }
     .fb-toolbar-icons { display: flex; gap: 8px; }
     .fb-toolbar-icons .social-icon { box-sizing: content-box; width: 17px; height: 17px; padding: 7px; border-radius: 50%; background: var(--fb-canvas); }
@@ -382,7 +397,7 @@
   </svg>
   <header class="topbar">
     <h1 id="workspace-title"></h1>
-    <div class="topbar-actions"><span class="topbar-note">貼文草稿的整理空間</span><button class="settings-trigger" id="open-library" type="button">📁 我的貼文</button><button class="settings-trigger" id="new-post" type="button">＋ 新的一篇</button><button class="settings-trigger" id="open-settings" type="button">⚙ 設定</button></div>
+    <div class="topbar-actions"><span class="topbar-note">貼文草稿的整理空間</span><button class="settings-trigger" id="open-library" type="button">📁 我的貼文</button><button class="settings-trigger" id="new-post" type="button">＋ 新的一篇</button><button class="settings-trigger" id="open-rich-menu" type="button">📋 圖文選單</button><button class="settings-trigger" id="open-settings" type="button">⚙ 設定</button></div>
   </header>
 
   <main class="workspace">
@@ -556,7 +571,10 @@
                   </div>
                 </div>
               </div>
-              <div class="app-nav" aria-hidden="true">LINE</div>
+              <div class="line-rich-menu">
+                <div class="line-rich-menu-bar" id="line-rich-menu-bar">選單 ▾</div>
+                <canvas class="rich-menu-canvas" id="line-rich-menu-preview" aria-label="LINE 聊天室圖文選單"></canvas>
+              </div>
             </article>
             <div class="device-home" aria-hidden="true"></div>
           </div>
@@ -565,6 +583,26 @@
       <p class="preview-note" id="publish-status" role="status">尚未連接社群發布服務，暫時無法發布貼文。</p>
     </aside>
   </main>
+
+  <dialog class="workspace-dialog" id="rich-menu-dialog" aria-labelledby="rich-menu-title">
+    <div class="dialog-heading"><h2 id="rich-menu-title">📋 圖文選單</h2><button class="dialog-close" type="button" data-close-dialog aria-label="關閉圖文選單">×</button></div>
+    <div class="dialog-fields">
+      <div class="rich-menu-controls">
+        <label>版型<select id="rich-menu-layout"></select></label>
+        <label>底色<select id="rich-menu-background"><option value="brand">品牌主色</option><option value="white">白色</option><option value="photo">這篇的主圖加深一點</option></select></label>
+        <label>選單列的字<input id="rich-menu-bar" type="text" placeholder="選單"></label>
+      </div>
+      <div id="rich-menu-cells"></div>
+      <p id="rich-menu-errors" aria-live="polite"></p>
+      <canvas class="rich-menu-canvas" id="rich-menu-preview" aria-label="圖文選單圖片預覽"></canvas>
+      <textarea class="dialog-textarea" id="rich-menu-copy-text" readonly hidden aria-label="圖文選單設定表"></textarea>
+    </div>
+    <div class="dialog-actions">
+      <button class="dialog-primary" id="download-rich-menu" type="button">⬇ 下載選單圖</button>
+      <button class="dialog-primary" id="copy-rich-menu" type="button">📋 複製設定表</button>
+    </div>
+    <p class="dialog-status" id="rich-menu-status" role="status"></p>
+  </dialog>
 
   <dialog class="workspace-dialog" id="settings-dialog" aria-labelledby="settings-title">
     <div class="dialog-heading"><h2 id="settings-title">設定</h2><button class="dialog-close" type="button" data-close-dialog aria-label="關閉設定">×</button></div>
@@ -644,6 +682,14 @@
 
   <script>
     // 品牌、平台與素材卡欄位都集中在 JavaScript 最上面，方便日後修改。
+    const MENUS = [
+      { id: 'large-6', name: '大型 6 格（上 3 下 3）', w: 2500, h: 1686, cols: 3, rows: 2 },
+      { id: 'large-4', name: '大型 4 格（上 2 下 2）', w: 2500, h: 1686, cols: 2, rows: 2 },
+      { id: 'large-1', name: '大型 1 格', w: 2500, h: 1686, cols: 1, rows: 1 },
+      { id: 'small-3', name: '小型 3 格（左中右）', w: 2500, h: 843, cols: 3, rows: 1 },
+      { id: 'small-2', name: '小型 2 格（左右）', w: 2500, h: 843, cols: 2, rows: 1 },
+      { id: 'small-1', name: '小型 1 格', w: 2500, h: 843, cols: 1, rows: 1 }
+    ];
     const PIC_SIZE = { FB: [1080, 1080], IG: [1080, 1350], LINE: [1040, 1040], Threads: [1080, 1350] };
     const SIZES = {
       platform: { label: '跟著平台' },
@@ -667,7 +713,7 @@
         { id: 'date', label: '日期', type: 'date', required: false },
         { id: 'feature', label: '講話風格', required: true, example: '例如：親切自然、像朋友聊天，簡單好懂' },
         { id: 'audience', label: '目標對象', required: true, example: '例如：正在挑選木地板的新成屋屋主' },
-        { id: 'cta', label: '要說的內容', required: false, example: '例如：這篇想傳達的重點、事實或資訊' },
+        { id: 'cta', label: '要說的內容', required: true, example: '例如：這篇想傳達的重點、事實或資訊' },
         { id: 'avoid', label: '先不要講的', required: false, example: '例如：實體門市參觀、特定品牌報價比較' }
     ];
     const WORKSPACE = {
@@ -1112,6 +1158,7 @@ ${message.content}`;
       }
     }
 
+    let refreshRichMenuPhoto = () => {};
     function showImage(index) {
       currentImageIndex = Math.max(0, Math.min(index, uploadedImages.length - 1));
       const selected = uploadedImages[currentImageIndex]?.url ? uploadedImages[currentImageIndex] : null;
@@ -1138,6 +1185,7 @@ ${message.content}`;
         button.setAttribute('aria-pressed', String(i === currentImageIndex));
       });
       renderLetteredPreview();
+      refreshRichMenuPhoto();
     }
 
     imageTextInput.addEventListener('input', () => { renderLetteredPreview(); persistWorkingCopy(); });
@@ -2658,6 +2706,351 @@ ${message.content}`;
         promptOutput.focus();
         promptOutput.select();
       }
+    });
+    // Rich menu helpers
+    function menuCellCode(index) {
+      return String.fromCharCode(65 + index);
+    }
+    function menuCellPosition(layout, index) {
+      const column = index % layout.cols;
+      const horizontal = layout.cols === 1 ? ['中間'] : layout.cols === 2 ? ['左', '右'] : ['左', '中', '右'];
+      if (layout.rows === 1) return horizontal[column];
+      const vertical = index < layout.cols ? '上' : '下';
+      return horizontal[column] === '中' ? vertical + '中' : horizontal[column] + vertical;
+    }
+    function menuProblems(layout, cells) {
+      const active = cells.slice(0, layout.cols * layout.rows);
+      const problems = [];
+      if (active.every(cell => cell.action === 'none')) problems.push('至少要有一格設定動作。');
+      active.forEach((cell, index) => {
+        const name = menuCellCode(index) + ' 格';
+        if (!cell.icon.trim() && !cell.label.trim()) problems.push(name + '要填格子上的字或圖示。');
+        if (cell.icon.trim() && !/[\p{Extended_Pictographic}\p{Regional_Indicator}\u20e3]/u.test(cell.icon)) {
+          problems.push(name + '的圖示請填一個 emoji，或留白。');
+        }
+        if (cell.action === 'url') {
+          const url = cell.content.trim();
+          try {
+            if (!/^https:\/\/[^/\s?#]+/.test(url) || !new URL(url).hostname) throw new Error();
+          } catch { problems.push(name + '的網址要以 https:// 開頭，並填入完整網址。'); }
+        }
+        if (cell.action === 'text' && !cell.content.trim() && !cell.label.trim()) problems.push(name + '要填送出的文字或格子上的字。');
+      });
+      return problems;
+    }
+    function menuSettingsText(layout, bar, cells) {
+      const entries = cells.slice(0, layout.cols * layout.rows).map((cell, index) => {
+        const heading = menuCellCode(index) + '（' + menuCellPosition(layout, index) + '）';
+        const title = [cell.icon.trim(), cell.label.trim()].filter(Boolean).join(' ');
+        const value = cell.content.trim();
+        const action = cell.action === 'url' ? '網址「' + value + '」'
+          : cell.action === 'text' ? '文字「' + (value || cell.label.trim()) + '」' : '不設定';
+        return heading + title + ' → ' + action;
+      });
+      return ['版型：' + layout.name + ' ' + layout.w + '×' + layout.h, '選單列的字：' + bar, ...entries].join('\n');
+    }
+    async function encodeMenuJpeg(canvas) {
+      for (const quality of [.92, .85, .78, .7, .6, .5]) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (!blob || blob.type !== 'image/jpeg') throw new Error('無法製作 JPEG，請再試一次。');
+        if (blob.size <= 1000000) return blob;
+      }
+      throw new Error('圖片壓縮後仍超過 1 MB，請換底色或主圖再試。');
+    }
+
+    // Rich menu editor
+    const richMenuKey = '社群工作台:' + BRAND.name + ':LINE圖文選單';
+    const legacyMenu = readStoredJSON(richMenuKey, null);
+    const menuDialog = document.getElementById('rich-menu-dialog');
+    const menuLayoutInput = document.getElementById('rich-menu-layout');
+    const menuBackgroundInput = document.getElementById('rich-menu-background');
+    const menuBarInput = document.getElementById('rich-menu-bar');
+    const menuCellsHost = document.getElementById('rich-menu-cells');
+    const menuStatus = document.getElementById('rich-menu-status');
+    const menuErrors = document.getElementById('rich-menu-errors');
+    const menuDownload = document.getElementById('download-rich-menu');
+    const menuCopy = document.getElementById('copy-rich-menu');
+    const menuCopyText = document.getElementById('rich-menu-copy-text');
+    const menuEditorCanvas = document.getElementById('rich-menu-preview');
+    const menuPhoneCanvas = document.getElementById('line-rich-menu-preview');
+    const menuPhoneBar = document.getElementById('line-rich-menu-bar');
+    const menuSegmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter('zh-Hant') : null;
+    function limitMenuText(text, length) {
+      if (typeof text !== 'string') return '';
+      const characters = menuSegmenter ? Array.from(menuSegmenter.segment(text), item => item.segment) : Array.from(text);
+      return characters.slice(0, length).join('');
+    }
+    const menuActions = [['text', '送出文字'], ['url', '開網址'], ['none', '不設定']];
+    let menuCells = [];
+    const menuDatabase = new Promise((resolve, reject) => {
+      if (!globalThis.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+      const request = indexedDB.open('studio-rich-menu', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('menus');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error('IndexedDB blocked'));
+    });
+    async function menuTransaction(mode, action) {
+      const database = await menuDatabase;
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction('menus', mode);
+        const store = transaction.objectStore('menus');
+        transaction.oncomplete = resolve;
+        transaction.onabort = () => reject(transaction.error);
+        action(store);
+      });
+    }
+    async function loadMenu() {
+      let storedMenu;
+      await menuTransaction(legacyMenu ? 'readwrite' : 'readonly', store => {
+        const request = store.get(richMenuKey);
+        request.onsuccess = () => {
+          storedMenu = request.result;
+          if (storedMenu === undefined && legacyMenu) {
+            store.put(legacyMenu, richMenuKey);
+            storedMenu = legacyMenu;
+          }
+        };
+      });
+      if (legacyMenu) {
+        try { localStorage.removeItem(richMenuKey); } catch { /* The IndexedDB record is already committed. */ }
+      }
+      return storedMenu;
+    }
+    function appendMenuOption(select, value, title) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = title;
+      select.appendChild(option);
+    }
+    MENUS.forEach(layout => appendMenuOption(menuLayoutInput, layout.id, layout.name));
+    function applyStoredMenu(storedMenu) {
+      menuCells = Array.from({ length: Math.max(...MENUS.map(layout => layout.cols * layout.rows)) }, (_, index) => {
+        const cell = storedMenu?.cells?.[index];
+        return {
+          icon: limitMenuText(cell?.icon, 1),
+          label: limitMenuText(cell?.label, 12),
+          action: menuActions.some(([value]) => value === cell?.action) ? cell.action : 'none',
+          content: typeof cell?.content === 'string' ? cell.content : ''
+        };
+      });
+      menuLayoutInput.value = MENUS.some(layout => layout.id === storedMenu?.layout) ? storedMenu.layout : MENUS[0].id;
+      menuBackgroundInput.value = ['brand', 'white', 'photo'].includes(storedMenu?.background) ? storedMenu.background : 'brand';
+      menuBarInput.value = typeof storedMenu?.bar === 'string' ? limitMenuText(storedMenu.bar, 14) : '選單';
+      buildMenuRows();
+      renderRichMenu();
+    }
+
+    function currentMenuLayout() {
+      return MENUS.find(layout => layout.id === menuLayoutInput.value) || MENUS[0];
+    }
+    function menuBarText() {
+      return menuBarInput.value.trim() || '選單';
+    }
+    function setMenuStatus(message, failed = false) {
+      menuStatus.textContent = message;
+      menuStatus.classList.toggle('is-error', failed);
+    }
+    function updateMenuErrors() {
+      const problems = menuProblems(currentMenuLayout(), menuCells);
+      menuErrors.textContent = problems.join('\n');
+      return problems;
+    }
+    async function saveMenu() {
+      menuCopyText.hidden = true;
+      setMenuStatus('');
+      const snapshot = {
+        layout: menuLayoutInput.value,
+        background: menuBackgroundInput.value,
+        bar: menuBarInput.value,
+        cells: menuCells.map(cell => ({ ...cell }))
+      };
+      updateMenuErrors();
+      renderRichMenu();
+      try { await menuTransaction('readwrite', store => store.put(snapshot, richMenuKey)); }
+      catch { setMenuStatus('圖文選單未儲存，請確認瀏覽器可使用 IndexedDB。', true); }
+    }
+    function bindMenuText(input, limit, update) {
+      const apply = () => {
+        if (limit) input.value = limitMenuText(input.value, limit);
+        update?.(input.value);
+        return saveMenu();
+      };
+      input.addEventListener('input', event => { if (!event?.isComposing) return apply(); });
+      input.addEventListener('compositionend', apply);
+    }
+    function buildMenuRows() {
+      menuCellsHost.replaceChildren();
+      const layout = currentMenuLayout();
+      menuCells.slice(0, layout.cols * layout.rows).forEach((cell, index) => {
+        const row = document.createElement('div');
+        row.className = 'rich-menu-row';
+        const code = menuCellCode(index);
+        const marker = document.createElement('strong');
+        marker.textContent = code;
+        row.appendChild(marker);
+        for (const [key, title, limit] of [['icon', '圖示', 1], ['label', '格子上的字', 12], ['action', '按了做什麼', 0], ['content', '內容', 0]]) {
+          const label = document.createElement('label');
+          label.textContent = title;
+          const input = document.createElement(key === 'action' ? 'select' : 'input');
+          input.setAttribute('aria-label', code + ' 格' + title);
+          if (key === 'action') {
+            menuActions.forEach(([value, name]) => appendMenuOption(input, value, name));
+            input.addEventListener('change', () => { cell.action = input.value; saveMenu(); });
+          } else {
+            input.type = 'text';
+            if (key === 'icon') input.placeholder = '☕';
+            if (key === 'content') input.placeholder = '送出的字或網址';
+            bindMenuText(input, limit, value => { cell[key] = value; });
+          }
+          input.value = cell[key];
+          label.appendChild(input);
+          row.appendChild(label);
+        }
+        menuCellsHost.appendChild(row);
+      });
+    }
+
+    function drawRichMenu(canvas, layout, background, cells, photo, width) {
+      const context = canvas.getContext('2d');
+      if (!context) return false;
+      canvas.width = width;
+      canvas.height = Math.round(width * layout.h / layout.w);
+      context.scale(canvas.width / layout.w, canvas.height / layout.h);
+      const pageStyle = getComputedStyle(document.documentElement);
+      const brandColor = pageStyle.getPropertyValue('--main').trim() || pageStyle.getPropertyValue('--brand').trim();
+      const white = pageStyle.getPropertyValue('--on-brand').trim();
+      const font = pageStyle.fontFamily;
+      const light = background === 'white';
+      context.fillStyle = light ? white : brandColor;
+      context.fillRect(0, 0, layout.w, layout.h);
+      if (photo) {
+        const crop = coverCrop(photo.naturalWidth, photo.naturalHeight, layout.w, layout.h);
+        context.drawImage(photo, crop.x, crop.y, crop.width, crop.height, 0, 0, layout.w, layout.h);
+        context.fillStyle = pageStyle.getPropertyValue('--rich-menu-photo-shade').trim();
+        context.fillRect(0, 0, layout.w, layout.h);
+      }
+      const cellWidth = layout.w / layout.cols;
+      const cellHeight = layout.h / layout.rows;
+      context.beginPath();
+      for (let col = 1; col < layout.cols; col++) {
+        context.moveTo(col * cellWidth, 0);
+        context.lineTo(col * cellWidth, layout.h);
+      }
+      for (let row = 1; row < layout.rows; row++) {
+        context.moveTo(0, row * cellHeight);
+        context.lineTo(layout.w, row * cellHeight);
+      }
+      context.lineWidth = 4;
+      context.strokeStyle = light ? brandColor : white;
+      context.globalAlpha = .32;
+      context.stroke();
+      context.globalAlpha = 1;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = light ? brandColor : white;
+      const unit = Math.min(cellWidth, cellHeight);
+      const iconSize = unit * .27;
+      const labelSize = unit * .13;
+      const lineHeight = labelSize * 1.22;
+      cells.slice(0, layout.cols * layout.rows).forEach((cell, index) => {
+        const x = (index % layout.cols + .5) * cellWidth;
+        const centerY = (Math.floor(index / layout.cols) + .5) * cellHeight;
+        const icon = cell.icon.trim();
+        const label = cell.label.trim();
+        context.font = '700 ' + labelSize + 'px ' + font;
+        const lines = label ? wrapOverlayText(context, label, cellWidth * .82, 2) : [];
+        const iconHeight = icon ? iconSize * 1.12 : 0;
+        const gap = icon && lines.length ? unit * .045 : 0;
+        let y = centerY - (iconHeight + gap + lines.length * lineHeight) / 2;
+        if (icon) {
+          context.font = '700 ' + iconSize + 'px ' + font + ', "Segoe UI Emoji"';
+          context.fillText(icon, x, y + iconHeight / 2, cellWidth * .82);
+          y += iconHeight + gap;
+        }
+        context.font = '700 ' + labelSize + 'px ' + font;
+        lines.forEach((line, index) => context.fillText(line, x, y + (index + .5) * lineHeight, cellWidth * .82));
+      });
+      return true;
+    }
+
+    let menuPhotoUrl = '';
+    let menuPhotoPromise = Promise.resolve(null);
+    function richMenuPhoto(background) {
+      const url = background === 'photo' ? uploadedImages[currentImageIndex]?.url || '' : '';
+      if (url !== menuPhotoUrl) {
+        menuPhotoUrl = url;
+        menuPhotoPromise = url ? loadSourceImage(url).catch(() => null) : Promise.resolve(null);
+      }
+      return menuPhotoPromise;
+    }
+    let menuPreviewVersion = 0;
+    async function renderRichMenu() {
+      const version = ++menuPreviewVersion;
+      const layout = currentMenuLayout();
+      const background = menuBackgroundInput.value;
+      menuPhoneBar.textContent = menuBarText() + ' ▾';
+      const [photo] = await Promise.all([richMenuPhoto(background), document.fonts?.ready]);
+      if (version !== menuPreviewVersion) return;
+      if (typeof menuEditorCanvas.getContext === 'function' && drawRichMenu(menuEditorCanvas, layout, background, menuCells, photo, 600)) {
+        menuPhoneCanvas.width = menuEditorCanvas.width;
+        menuPhoneCanvas.height = menuEditorCanvas.height;
+        menuPhoneCanvas.getContext('2d')?.drawImage(menuEditorCanvas, 0, 0);
+      }
+      if (background === 'photo' && !photo) {
+        menuErrors.textContent = [...updateMenuErrors(), '找不到這篇的主圖，先用品牌主色。'].join('\n');
+      } else updateMenuErrors();
+    }
+    refreshRichMenuPhoto = () => { if (menuBackgroundInput.value === 'photo') renderRichMenu(); };
+    menuLayoutInput.addEventListener('change', () => { buildMenuRows(); saveMenu(); });
+    menuBackgroundInput.addEventListener('change', saveMenu);
+    bindMenuText(menuBarInput, 14);
+    document.getElementById('open-rich-menu').addEventListener('click', async () => {
+      await menuReady;
+      menuDialog.showModal();
+      renderRichMenu();
+    });
+    menuDownload.addEventListener('click', async () => {
+      if (updateMenuErrors().length) { setMenuStatus('請先修正上方提示。', true); return; }
+      const layout = currentMenuLayout();
+      const background = menuBackgroundInput.value;
+      const cells = menuCells.map(cell => ({ ...cell }));
+      menuDownload.disabled = true;
+      setMenuStatus('正在製作選單圖…');
+      try {
+        const [photo] = await Promise.all([richMenuPhoto(background), document.fonts?.ready]);
+        const canvas = document.createElement('canvas');
+        if (!drawRichMenu(canvas, layout, background, cells, photo, layout.w)) throw new Error('瀏覽器無法繪製選單圖。');
+        const jpeg = await encodeMenuJpeg(canvas);
+        const url = URL.createObjectURL(jpeg);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = BRAND.name.replace(/[<>:"/\\|?*]/g, '_') + '_圖文選單_' + layout.w + 'x' + layout.h + '.jpg';
+        document.body.appendChild(link);
+        try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+        setMenuStatus('下載好了：' + layout.w + '×' + layout.h + '，' + (jpeg.size / 1000000).toFixed(3) + ' MB');
+      } catch (error) { setMenuStatus(error.message || '下載失敗，請再試一次。', true); }
+      finally { menuDownload.disabled = false; }
+    });
+    menuCopy.addEventListener('click', async () => {
+      if (updateMenuErrors().length) { setMenuStatus('請先修正上方提示。', true); return; }
+      const sheet = menuSettingsText(currentMenuLayout(), menuBarText(), menuCells);
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+        await navigator.clipboard.writeText(sheet);
+        menuCopyText.hidden = true;
+        setMenuStatus('已複製設定表。');
+      } catch {
+        menuCopyText.value = sheet;
+        menuCopyText.hidden = false;
+        menuCopyText.focus();
+        menuCopyText.select();
+        setMenuStatus('無法自動複製，請手動複製設定表。', true);
+      }
+    });
+    const menuReady = loadMenu().then(applyStoredMenu, () => {
+      applyStoredMenu(legacyMenu);
+      setMenuStatus('無法讀取圖文選單的 IndexedDB，這次的修改可能無法儲存。', true);
     });
   </script>
 </body>
